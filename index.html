@@ -36,7 +36,7 @@
 
     // RANDOM TREES
     AFRAME.registerComponent('random-trees', {
-      schema: { count: { default: 30 }, radius: { default: 100 } },
+      schema: { count: { default: 20 }, radius: { default: 100 } },
       init: function () {
         const scene = this.el.sceneEl;
         for (let i = 0; i < this.data.count; i++) {
