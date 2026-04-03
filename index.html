@@ -1,0 +1,184 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Dream House VR</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+  <!-- A-Frame -->
+  <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
+  <script src="https://unpkg.com/aframe-watcher/dist/aframe-watcher.min.js"></script>
+
+  <script>
+    // VERTICAL MOVEMENT
+    AFRAME.registerComponent('vertical-controls', {
+      schema: { speed: { type: 'number', default: 6 } },
+      init: function () {
+        this.keys = {};
+        this.onKeyDown = e => this.keys[e.code] = true;
+        this.onKeyUp = e => this.keys[e.code] = false;
+        window.addEventListener('keydown', this.onKeyDown);
+        window.addEventListener('keyup', this.onKeyUp);
+      },
+      remove: function () {
+        window.removeEventListener('keydown', this.onKeyDown);
+        window.removeEventListener('keyup', this.onKeyUp);
+      },
+      tick: function (_, dt) {
+        if (!dt) return;
+        const up = this.keys.Space || this.keys.KeyE;
+        const down = this.keys.ShiftLeft || this.keys.ShiftRight || this.keys.KeyQ;
+        if (!up && !down) return;
+        const dir = (up ? 1 : 0) - (down ? 1 : 0);
+        this.el.object3D.position.y += dir * this.data.speed * (dt / 1000);
+      }
+    });
+
+    // RANDOM TREES
+    AFRAME.registerComponent('random-trees', {
+      schema: { count: { default: 30 }, radius: { default: 100 } },
+      init: function () {
+        const scene = this.el.sceneEl;
+        for (let i = 0; i < this.data.count; i++) {
+          let x = (Math.random() - 0.5) * this.data.radius * 2;
+          let z = (Math.random() - 0.5) * this.data.radius * 2;
+
+          // avoid villa
+          if (Math.abs(x) < 15 && Math.abs(z - 30) < 15) { i--; continue; }
+
+          // avoid big pool area
+          if (x > -25 && x < -5 && z > 5 && z < 30) { i--; continue; }
+
+          const tree = document.createElement('a-entity');
+          tree.setAttribute('gltf-model', '#palmModel');
+
+          const s = 1.5 + Math.random() * 2;
+          tree.setAttribute('scale', `${s} ${s} ${s}`);
+          tree.setAttribute('position', `${x} 0 ${z}`);
+          tree.setAttribute('rotation', `0 ${Math.random() * 360} 0`);
+
+          scene.appendChild(tree);
+        }
+      }
+    });
+
+    // WAVE EFFECT (for water surface)
+    AFRAME.registerComponent('wave-effect', {
+      init: function () { this.time = 0; },
+      tick: function (_, dt) {
+        this.time += dt / 1000;
+        const mesh = this.el.getObject3D('mesh');
+        if (!mesh) return;
+
+        const pos = mesh.geometry.attributes.position;
+
+        for (let i = 0; i < pos.count; i++) {
+          const x = pos.getX(i);
+          const y = pos.getY(i);
+
+          const wave =
+            Math.sin(x * 2 + this.time * 2) * 0.1 +
+            Math.cos(y * 2 + this.time * 1.5) * 0.1;
+
+          pos.setZ(i, wave);
+        }
+
+        pos.needsUpdate = true;
+        mesh.geometry.computeVertexNormals();
+      }
+    });
+  </script>
+</head>
+
+<body>
+
+<a-scene 
+  vr-mode-ui="enabled: true"
+  renderer="antialias: true"
+  random-trees>
+
+  <!-- Assets -->
+  <a-assets>
+    <a-asset-item id="villaModel" src="assets/villa_modern.glb"></a-asset-item>
+    <a-asset-item id="helipadModel" src="assets/heliport_helipad_air_base_helicopter.glb"></a-asset-item>
+    <a-asset-item id="heliModel" src="assets/helicopter.glb"></a-asset-item>
+    <a-asset-item id="palmModel" src="assets/palm_tree_55k_triangles.glb"></a-asset-item>
+    <img id="beach" src="textures/beach.jpg">
+    <img id="driveway" src="textures/driveway.png" crossorigin="anonymous" />
+  </a-assets>
+
+  <!-- Lighting -->
+  <a-entity light="type: ambient; intensity: 0.7"></a-entity>
+  <a-entity light="type: directional; intensity: 1" position="10 20 10"></a-entity>
+
+  <!-- Ground -->
+  <a-plane 
+    rotation="-90 0 0"
+    width="200"
+    height="200"
+    material="src: #beach; repeat: 50 50">
+  </a-plane>
+
+  <!-- Villa -->
+  <a-entity gltf-model="#villaModel" position="0 0.2 30" scale="3 3 3"></a-entity>
+
+  <!-- Helipad -->
+  <a-entity gltf-model="#helipadModel" position="26 0.2 15" scale="0.01 0.01 0.01"></a-entity>
+
+  <!-- Helicopter -->
+  <a-entity id="helicopter-model" position="25 2 16" scale="80 89 80">
+    <a-entity gltf-model="#heliModel"></a-entity> 
+  </a-entity>
+
+  <a-entity id="palm-model" position="-42.29509 -0.05154 5.26713" scale="3 3 3">
+    <a-entity gltf-model="#palmModel"></a-entity> 
+  </a-entity>
+  
+  <a-plane id="driveway-model" scale="2 1 1" position="0.62791 19.23841 -41.78315" rotation="-90 0 0" width="23" height="50"
+            material="src:#driveway; repeat:1 5; roughness:0.8; metalness:0.2" shadow="receive:true"></a-plane>
+
+  
+
+  <!-- HUGE ROUND POOL -->
+  <a-entity position="-17 0.2 13">
+
+    <!-- Base -->
+    <a-cylinder position="0 -0.5 0" radius="10.5" height="1" color="#333"></a-cylinder>
+
+    <!-- Wall -->
+    <a-cylinder position="0 1 0" radius="10" height="2.5" open-ended="true"
+      material="color: #0077be; opacity: 0.5; transparent: true"></a-cylinder>
+
+    <!-- Water -->
+    <a-circle position="0 2 0" rotation="-90 0 0" radius="9.7"
+      segments="80"
+      material="color: #0077be; opacity: 0.75; transparent: true; side: double"
+      wave-effect>
+    </a-circle>
+
+    <!-- Bottom -->
+    <a-circle position="0 0.05 0" rotation="-90 0 0" radius="9.7"
+      material="color: #005599; opacity: 0.9; transparent: true">
+    </a-circle>
+
+    <!-- Edge -->
+    <a-torus position="0 2.2 0" rotation="90 0 0"
+      radius="10" radius-tubular="0.25" color="#ddd">
+    </a-torus>
+
+  </a-entity>
+
+  <!-- Sky -->
+  <a-sky color="#87CEEB"></a-sky>
+
+  <!-- Player -->
+  <a-entity position="0 1.6 45" vertical-controls>
+    <a-camera wasd-controls="acceleration:70">
+      <a-cursor fuse="true" fuse-timeout="1200"></a-cursor>
+    </a-camera>
+  </a-entity>
+
+</a-scene>
+
+</body>
+</html>
